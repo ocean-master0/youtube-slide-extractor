@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}Extract Slides{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="card shadow-lg border-0 rounded-lg mt-5">
+            <div class="card-header bg-gradient-primary-to-secondary text-white">
+                <h3 class="text-center font-weight-light my-2">Extract Slides from YouTube Videos</h3>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info" role="alert">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Enter a YouTube URL, adjust parameters, and click Extract to get slides from educational videos.
+                </div>
+                
+                <form id="extractForm" method="POST" action="{{ url_for('extract') }}">
+                    <div class="mb-4">
+                        <label for="youtube_url" class="form-label fw-bold">YouTube URL:</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fab fa-youtube"></i></span>
+                            <input type="url" class="form-control" id="youtube_url" name="youtube_url" required
+                                   placeholder="https://www.youtube.com/watch?v=...">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label for="interval" class="form-label fw-bold">Frame Interval (Seconds):</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-clock"></i></span>
+                                <input type="number" class="form-control" id="interval" name="interval" 
+                                       value="2" min="1" max="30" required>
+                            </div>
+                            <small class="form-text text-muted">
+                                Lower values check more frames (2-5 recommended for most videos).
+                            </small>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label for="threshold" class="form-label fw-bold">Similarity Threshold (0.1 to 1.0):</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-adjust"></i></span>
+                                <input type="number" class="form-control" id="threshold" name="threshold" 
+                                       value="0.7" min="0.1" max="1.0" step="0.05" required>
+                            </div>
+                            <small class="form-text text-muted">
+                                Lower values (0.7) detect more slides. Higher values (0.9) are more selective.
+                            </small>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-center mt-4 mb-0">
+                        <button type="submit" id="extractBtn" class="btn btn-primary btn-lg px-5">
+                            <i class="fas fa-film me-2"></i>Extract Slides
+                        </button>
+                    </div>
+                </form>
+            </div>
+            <div class="card-footer text-center py-3">
+                <div class="text-muted small">Processing may take several minutes depending on video length.</div>
+            </div>
+        </div>
+        
+        <!-- Features Cards -->
+        <div class="row mt-5">
+            <div class="col-md-4 mb-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <div class="feature-icon bg-primary bg-gradient text-white rounded-circle mb-3">
+                            <i class="fas fa-film"></i>
+                        </div>
+                        <h5 class="card-title">Extract from Any Video</h5>
+                        <p class="card-text">Works with educational videos, lectures, presentations, and tutorials on YouTube.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <div class="feature-icon bg-primary bg-gradient text-white rounded-circle mb-3">
+                            <i class="fas fa-cogs"></i>
+                        </div>
+                        <h5 class="card-title">Customize Detection</h5>
+                        <p class="card-text">Adjust time interval and similarity threshold to get the best results for each video.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <div class="feature-icon bg-primary bg-gradient text-white rounded-circle mb-3">
+                            <i class="fas fa-file-pdf"></i>
+                        </div>
+                        <h5 class="card-title">PDF Download</h5>
+                        <p class="card-text">Get all extracted slides in a single PDF document for easy sharing and studying.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        $('#extractForm').on('submit', function(e) {
+            e.preventDefault();
+            
+            // Show loading state
+            $('#extractBtn').prop('disabled', true).html(
+                '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Processing...'
+            );
+            
+            // Send AJAX request
+            $.ajax({
+                type: 'POST',
+                url: $(this).attr('action'),
+                data: $(this).serialize(),
+                dataType: 'json',
+                success: function(response) {
+                    if (response.status === 'success') {
+                        window.location.href = response.redirect;
+                    } else {
+                        alert(response.message);
+                        $('#extractBtn').prop('disabled', false).html(
+                            '<i class="fas fa-film me-2"></i>Extract Slides'
+                        );
+                    }
+                },
+                error: function() {
+                    alert('An error occurred. Please try again.');
+                    $('#extractBtn').prop('disabled', false).html(
+                        '<i class="fas fa-film me-2"></i>Extract Slides'
+                    );
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

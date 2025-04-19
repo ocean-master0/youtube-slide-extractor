@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}Processing{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-lg border-0 rounded-lg mt-5">
+            <div class="card-header bg-gradient-primary-to-secondary text-white">
+                <h3 class="text-center font-weight-light my-2">Slide Extraction Progress</h3>
+            </div>
+            <div class="card-body">
+                <div id="processing-status" class="text-center mb-4">
+                    <div class="spinner-border text-primary mb-3" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <h5 id="status-message">Initializing extraction...</h5>
+                </div>
+                
+                <div class="progress mb-4" style="height: 25px;">
+                    <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                         role="progressbar" style="width: 0%"></div>
+                </div>
+                
+                <div id="extraction-info" class="alert alert-info" role="alert">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <span id="info-message">This process may take several minutes depending on video length.</span>
+                </div>
+                
+                <div id="download-section" class="text-center mt-4" style="display: none;">
+                    <p class="mb-3" id="success-message"></p>
+                    <a id="download-btn" href="#" class="btn btn-success btn-lg">
+                        <i class="fas fa-file-pdf me-2"></i>Download PDF
+                    </a>
+                    <p class="mt-3 text-muted small">Files are temporarily stored and will be removed after download.</p>
+                </div>
+                
+                <div id="error-section" class="text-center mt-4" style="display: none;">
+                    <div class="alert alert-danger" role="alert">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <span id="error-message"></span>
+                    </div>
+                    <a href="{{ url_for('index') }}" class="btn btn-primary btn-lg">
+                        <i class="fas fa-redo me-2"></i>Try Again
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        const extractionId = "{{ extraction_id }}";
+        let checkStatusInterval;
+        
+        // Function to update UI based on status
+        function updateStatus(data) {
+            $('#status-message').text(data.message);
+            
+            // Update progress
+            let progressWidth = 0;
+            if (data.status === 'downloading') progressWidth = 20;
+            else if (data.status === 'extracting') progressWidth = 60;
+            else if (data.status === 'completed') progressWidth = 100;
+            else if (data.status === 'error') progressWidth = 100;
+            
+            $('#progress-bar').css('width', progressWidth + '%');
+            
+            // Handle completion
+            if (data.status === 'completed') {
+                clearInterval(checkStatusInterval);
+                $('#processing-status').hide();
+                $('#extraction-info').hide();
+                $('#success-message').text(`Found ${data.slides_count} slides in the video!`);
+                $('#download-btn').attr('href', `/download-pdf/${extractionId}`);
+                $('#download-section').show();
+                $('#progress-bar').removeClass('progress-bar-animated').addClass('bg-success');
+            }
+            
+            // Handle error
+            if (data.status === 'error') {
+                clearInterval(checkStatusInterval);
+                $('#processing-status').hide();
+                $('#extraction-info').hide();
+                $('#error-message').text(data.message);
+                $('#error-section').show();
+                $('#progress-bar').removeClass('progress-bar-animated').addClass('bg-danger');
+            }
+        }
+        
+        // Check status every 2 seconds
+        checkStatusInterval = setInterval(function() {
+            $.ajax({
+                url: `/status/${extractionId}`,
+                type: 'GET',
+                dataType: 'json',
+                success: function(data) {
+                    updateStatus(data);
+                },
+                error: function() {
+                    clearInterval(checkStatusInterval);
+                    $('#status-message').text('Error checking status');
+                    $('#error-message').text('Failed to get extraction status');
+                    $('#error-section').show();
+                }
+            });
+        }, 2000);
+    });
+</script>
+{% endblock %}
