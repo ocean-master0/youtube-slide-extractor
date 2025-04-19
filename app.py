@@ -4,14 +4,16 @@ import threading
 import time
 import uuid
 import tempfile
+import shutil
 from slide_extractor import SlideExtractor
 
 # Initialize Flask application
 app = Flask(__name__)
+# Use environment variable for secret key with fallback
 app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max upload
 
-# In-memory storage for active extractions
+# Store active extractions with status (in-memory storage)
 active_extractions = {}
 
 @app.route('/')
@@ -182,7 +184,6 @@ def cleanup_extraction(extraction_id):
             # Delete temporary directory
             temp_dir = active_extractions[extraction_id]['temp_dir']
             if os.path.exists(temp_dir):
-                import shutil
                 shutil.rmtree(temp_dir)
             
             # Remove from active extractions
@@ -191,7 +192,10 @@ def cleanup_extraction(extraction_id):
     except Exception as e:
         print(f"Error during cleanup: {str(e)}")
 
-# For deployment - use environment variable for port or default to 5000
+# For proper deployment - this allows running with gunicorn
+# Use environment variables for port configuration
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+    # For production, set debug to False
+    debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+    app.run(host='0.0.0.0', port=port, debug=debug_mode)
