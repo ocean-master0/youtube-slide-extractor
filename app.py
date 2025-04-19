@@ -4,16 +4,13 @@ import threading
 import time
 import uuid
 import tempfile
-import shutil
 from slide_extractor import SlideExtractor
 
-# Initialize Flask application
 app = Flask(__name__)
-# Use environment variable for secret key with fallback
-app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))
+app.secret_key = os.urandom(24)
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max upload
 
-# Store active extractions with status (in-memory storage)
+# Store active extractions with status
 active_extractions = {}
 
 @app.route('/')
@@ -44,23 +41,19 @@ def extract():
         extraction_id = str(uuid.uuid4())
         session['extraction_id'] = extraction_id
         
-        # Create temp directory for this extraction
-        temp_dir = tempfile.mkdtemp()
-        
         # Initialize status
         active_extractions[extraction_id] = {
             'status': 'downloading',
             'progress': 0,
             'message': 'Downloading video...',
             'slides_count': 0,
-            'temp_dir': temp_dir,
             'extractor': None
         }
         
         # Start extraction in a background thread
         threading.Thread(
             target=process_extraction,
-            args=(extraction_id, url, interval, threshold, temp_dir),
+            args=(extraction_id, url, interval, threshold),
             daemon=True
         ).start()
         
@@ -107,18 +100,12 @@ def download_pdf(extraction_id):
     if not extractor:
         return jsonify({'status': 'error', 'message': 'Extractor not found'})
     
-    # PDF path
-    pdf_path = os.path.join(status_data['temp_dir'], 'slides.pdf')
-    
-    # Generate PDF
-    extractor.convert_slides_to_pdf(pdf_path)
+    # Generate PDF in memory
+    pdf_buffer = extractor.generate_pdf_in_memory()
     
     # Create response with PDF
-    with open(pdf_path, 'rb') as f:
-        pdf_data = f.read()
-    
     response = Response(
-        pdf_data,
+        pdf_buffer.getvalue(),
         mimetype='application/pdf',
         headers={'Content-Disposition': 'attachment;filename=slides.pdf'}
     )
@@ -132,17 +119,16 @@ def download_pdf(extraction_id):
     
     return response
 
-def process_extraction(extraction_id, url, interval, threshold, temp_dir):
+def process_extraction(extraction_id, url, interval, threshold):
     """Process video extraction in a background thread."""
     try:
         # Update status
         active_extractions[extraction_id]['status'] = 'downloading'
         active_extractions[extraction_id]['message'] = 'Downloading video...'
         
-        # Create extractor with temp directory
+        # Create extractor
         extractor = SlideExtractor(
             video_url=url, 
-            output_dir=temp_dir,
             interval=interval, 
             similarity_threshold=threshold
         )
@@ -171,31 +157,20 @@ def process_extraction(extraction_id, url, interval, threshold, temp_dir):
         active_extractions[extraction_id]['message'] = f'Error: {str(e)}'
 
 def cleanup_extraction(extraction_id):
-    """Clean up extraction temporary files."""
+    """Clean up extraction resources."""
     try:
         if extraction_id in active_extractions:
-            # Wait a bit to ensure download completes
-            time.sleep(5)
+            extractor = active_extractions[extraction_id]['extractor']
+            if extractor:
+                extractor.cleanup()
             
-            # Delete temporary directory after some time
-            # We keep it briefly so the PDF can be downloaded
-            time.sleep(300)  # Keep for 5 minutes after processing
-            
-            # Delete temporary directory
-            temp_dir = active_extractions[extraction_id]['temp_dir']
-            if os.path.exists(temp_dir):
-                shutil.rmtree(temp_dir)
-            
-            # Remove from active extractions
+            # Keep the status data for a while before removing
+            time.sleep(300)  # Keep for 5 minutes after download
             if extraction_id in active_extractions:
                 del active_extractions[extraction_id]
     except Exception as e:
         print(f"Error during cleanup: {str(e)}")
 
-# For proper deployment - this allows running with gunicorn
-# Use environment variables for port configuration
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    # For production, set debug to False
-    debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
-    app.run(host='0.0.0.0', port=port, debug=debug_mode)
+    app.run(host='0.0.0.0', port=5000)
+
