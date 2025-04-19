@@ -131,7 +131,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 **[Your Name]**
 
 - GitHub: [ocean-master0](https://github.com/ocean-master0)
-- Website: [your-website.com](https://your-website.com)
 
 ## 🔗 Hosted Version
 
