@@ -37,7 +37,7 @@
 ### Step 1: Clone the repository
 
 ```bash
-git clone https://github.com/[YOUR_USERNAME]/youtube-slide-extractor.git
+git clone https://github.com/ocean-master0/youtube-slide-extractors.git
 cd youtube-slide-extractor
 ```
 
@@ -143,4 +143,7 @@ You can try the online hosted version here: **[Live Demo](#)** *(Coming Soon!)*
 
 📧 For issues and feature requests, please open an issue on the GitHub repository.
 
-![Alt text](screenshots/Screenshot 2025-04-19 203213.png/Screenshot 2025-04-19 203658.png)
+![Screenshot 1](https://github.com/ocean-master0/youtube-slide-extractor/blob/main/screenshots/Screenshot%202025-04-19%20203213.png?raw=true)
+
+![Screenshot 2](https://github.com/ocean-master0/youtube-slide-extractor/blob/main/screenshots/Screenshot%202025-04-19%20203658.png?raw=true)
+
