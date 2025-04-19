@@ -37,7 +37,7 @@
 ### Step 1: Clone the repository
 
 ```bash
-git clone https://github.com/ocean-master0/youtube-slide-extractors.git
+git clone https://github.com/ocean-master0/youtube-slide-extractor.git
 cd youtube-slide-extractor
 ```
 
