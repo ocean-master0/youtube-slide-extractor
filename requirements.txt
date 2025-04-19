@@ -6,4 +6,3 @@ Pillow==10.0.0
 pytesseract==0.3.10
 scikit-image==0.21.0
 reportlab==4.0.4
-gunicorn==21.2.0  # For production deployment
