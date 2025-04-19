@@ -6,11 +6,12 @@ import uuid
 import tempfile
 from slide_extractor import SlideExtractor
 
+# Initialize Flask application
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
+app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max upload
 
-# Store active extractions with status
+# In-memory storage for active extractions
 active_extractions = {}
 
 @app.route('/')
@@ -41,19 +42,23 @@ def extract():
         extraction_id = str(uuid.uuid4())
         session['extraction_id'] = extraction_id
         
+        # Create temp directory for this extraction
+        temp_dir = tempfile.mkdtemp()
+        
         # Initialize status
         active_extractions[extraction_id] = {
             'status': 'downloading',
             'progress': 0,
             'message': 'Downloading video...',
             'slides_count': 0,
+            'temp_dir': temp_dir,
             'extractor': None
         }
         
         # Start extraction in a background thread
         threading.Thread(
             target=process_extraction,
-            args=(extraction_id, url, interval, threshold),
+            args=(extraction_id, url, interval, threshold, temp_dir),
             daemon=True
         ).start()
         
@@ -100,12 +105,18 @@ def download_pdf(extraction_id):
     if not extractor:
         return jsonify({'status': 'error', 'message': 'Extractor not found'})
     
-    # Generate PDF in memory
-    pdf_buffer = extractor.generate_pdf_in_memory()
+    # PDF path
+    pdf_path = os.path.join(status_data['temp_dir'], 'slides.pdf')
+    
+    # Generate PDF
+    extractor.convert_slides_to_pdf(pdf_path)
     
     # Create response with PDF
+    with open(pdf_path, 'rb') as f:
+        pdf_data = f.read()
+    
     response = Response(
-        pdf_buffer.getvalue(),
+        pdf_data,
         mimetype='application/pdf',
         headers={'Content-Disposition': 'attachment;filename=slides.pdf'}
     )
@@ -119,16 +130,17 @@ def download_pdf(extraction_id):
     
     return response
 
-def process_extraction(extraction_id, url, interval, threshold):
+def process_extraction(extraction_id, url, interval, threshold, temp_dir):
     """Process video extraction in a background thread."""
     try:
         # Update status
         active_extractions[extraction_id]['status'] = 'downloading'
         active_extractions[extraction_id]['message'] = 'Downloading video...'
         
-        # Create extractor
+        # Create extractor with temp directory
         extractor = SlideExtractor(
             video_url=url, 
+            output_dir=temp_dir,
             interval=interval, 
             similarity_threshold=threshold
         )
@@ -157,19 +169,29 @@ def process_extraction(extraction_id, url, interval, threshold):
         active_extractions[extraction_id]['message'] = f'Error: {str(e)}'
 
 def cleanup_extraction(extraction_id):
-    """Clean up extraction resources."""
+    """Clean up extraction temporary files."""
     try:
         if extraction_id in active_extractions:
-            extractor = active_extractions[extraction_id]['extractor']
-            if extractor:
-                extractor.cleanup()
+            # Wait a bit to ensure download completes
+            time.sleep(5)
             
-            # Keep the status data for a while before removing
-            time.sleep(300)  # Keep for 5 minutes after download
+            # Delete temporary directory after some time
+            # We keep it briefly so the PDF can be downloaded
+            time.sleep(300)  # Keep for 5 minutes after processing
+            
+            # Delete temporary directory
+            temp_dir = active_extractions[extraction_id]['temp_dir']
+            if os.path.exists(temp_dir):
+                import shutil
+                shutil.rmtree(temp_dir)
+            
+            # Remove from active extractions
             if extraction_id in active_extractions:
                 del active_extractions[extraction_id]
     except Exception as e:
         print(f"Error during cleanup: {str(e)}")
 
+# For deployment - use environment variable for port or default to 5000
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
